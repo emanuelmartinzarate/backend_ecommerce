@@ -3,10 +3,12 @@ const _ = require('lodash')
 const fs = require('fs')
 const Product = require('../models/product')
 const { errorHandler } = require('../helpers/dbErrorHandler')
-const { populate } = require('../models/product')
+
 
 exports.productById = (req, res, next, id) => {
-    Product.findById(id).exec( (err,product) => {
+    Product.findById(id)
+    .populate('category')
+    .exec( (err,product) => {
         if(err || !product){
             return res.status(400).json({
                 error: `Product not found`
@@ -87,14 +89,6 @@ exports.update = (req, res) => {
         if(err){
             return res.status(400).json({
                 error: `Image could not be uploaded ${err}`
-            })
-        }
-
-        const {name, description, price, category, quantity, shipping} = fields
-
-        if(!name || !description || !price || !category || !quantity || !shipping){
-            return res.status(400).json({
-                error: `All fields are required`
             })
         }
 
@@ -221,4 +215,42 @@ exports.photo = (req, res, next) => {
         return res.send(req.product.photo.data)
     }
     next()
+}
+
+exports.listSearch = (req, res) => {
+    const query = {}
+    if(req.query.search){
+        query.name = {$regex: req.query.search, $options: 'i'}
+        if(req.query.category && req.query.category != 'All'){
+            query.category = req.query.category
+        }
+        Product.find(query, (err,products) => {
+            if(err){
+                return res.status(400).json({
+                    error: errorHandler(err)
+                })
+            }
+            res.json(products)
+        }).select('-photo')       
+    }
+}
+
+exports.decreaseQuantity = (req, res, next) => {
+    let bulkOps = req.body.order.products.map( item => {
+        return {
+            updateOne: {
+                filter: {_id: item._id},
+                update: {$inc: {quantity: -item.count, sold: +item.count}}
+            }
+        }
+    })
+
+    Product.bulkWrite(bulkOps, {},(error, products) => {
+        if(error) {
+            res.status(400).json({
+                error: 'Could not update product'
+            })
+        }
+        next()
+    })
 }
