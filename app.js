@@ -5,6 +5,8 @@ const bodyParser = require('body-parser')
 const cookieParser = require('cookie-parser')
 const cors = require('cors')
 const expressValidator = require('express-validator')
+const http = require('http')
+const { Server } = require('socket.io')
 require('dotenv').config()
 
 //import routes
@@ -15,8 +17,35 @@ const productRoutes = require('./routes/product')
 const brainTreeRoutes = require('./routes/braintree')
 const orderRoutes = require('./routes/order')
 
+
 //app
 const app = express()
+const server = http.createServer(app)
+
+//socket.io
+const io = new Server(server, {
+    cors:{
+        origin: 'http://localhost:3000',
+        methods: ['GET','POST']
+    }
+})
+
+io.on('connection', (socket) => {
+    console.log(`User connected: ${socket.id}`)
+
+    socket.on('join_room', (data)=>{
+        socket.join(data)
+        console.log(`User with ID: ${socket.id} joined room: ${data}`)
+    })
+
+    socket.on("send_message", (data) => {
+        socket.to(data.room).emit("receive_message", data);
+      });
+
+    socket.on('disconnect', () =>{
+        console.log('User disconnected: ', socket.id)
+    })
+})
 
 //db
 mongoose
@@ -48,6 +77,6 @@ app.use('/api',orderRoutes)
 
 const port = process.env.PORT || 8000
 
-app.listen(port, () => {
+server.listen(port, () => {
     console.log(`Server is running on port ${port}`)
 })
