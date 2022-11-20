@@ -24,6 +24,7 @@ const server = http.createServer(app)
 
 //socket.io
 const io = new Server(server, {
+    path: '/socketchat/',
     cors:{
         origin: 'http://localhost:3000',
         methods: ['GET','POST']
